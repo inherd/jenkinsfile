@@ -1,6 +1,6 @@
 [package]
 name = "jenkinsfile"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Phodal Huang <h@phodal.com>", "R. Tyler Croy <rtyler@brokenco.de>"]
 edition = "2018"
 description = "a tools to convert Jenkinsfile to data struct"
