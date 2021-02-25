@@ -14,10 +14,12 @@ use regex::Regex;
 #[grammar = "pipeline.pest"]
 pub struct PipelineParser;
 
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Jenkinsfile {
     pub name: String,
     pub stages: Vec<JenkinsStage>,
     pub post: Vec<PostConfig>,
+    current_stage: JenkinsStage,
 }
 
 impl Default for Jenkinsfile {
@@ -26,6 +28,7 @@ impl Default for Jenkinsfile {
             name: "".to_string(),
             stages: vec![],
             post: vec![],
+            current_stage: Default::default()
         }
     }
 }
@@ -79,33 +82,29 @@ impl Jenkinsfile {
      * out a CustomError
      */
     fn parse_stage(&mut self, parser: &mut Pairs<Rule>) -> Result<(), PestError<Rule>> {
-        let mut stage = JenkinsStage::default();
+        self.current_stage = JenkinsStage::default();
         while let Some(parsed) = parser.next() {
             match parsed.as_rule() {
                 Rule::string => {
-                    stage.name = self.parse_string(&mut parsed.into_inner());
+                    self.current_stage.name = self.parse_string(&mut parsed.into_inner());
                 }
                 Rule::stepsDecl => {
-                    //
+                    self.parse_steps(&mut parsed.into_inner())?;
                 }
                 Rule::parallelDecl => {
                     //
                 }
                 Rule::stagesDecl => {
-                   //
                     self.parse_stages(&mut parsed.into_inner())?;
                 }
                 _ => {}
             }
         }
 
-
-        self.stages.push(stage);
+        self.stages.push(self.current_stage.clone());
 
         Ok(())
     }
-
-
 
     fn parse_string(&mut self, parser: &mut Pairs<Rule>) -> String {
         while let Some(parsed) = parser.next() {
@@ -145,30 +144,42 @@ impl Jenkinsfile {
         }
         Ok(())
     }
+
+    fn parse_steps(&mut self, parser: &mut Pairs<Rule>) -> Result<(), PestError<Rule>> {
+        while let Some(parsed) = parser.next() {
+            match parsed.as_rule() {
+                Rule::step => {
+                    self.current_stage.steps.push(parsed.as_str().to_string());
+                }
+                Rule::scriptStep => {
+                    self.current_stage.steps.push(parsed.as_str().to_string());
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
 }
 
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct JenkinsStage {
     pub name: String,
-    pub jobs: Vec<JenkinsJob>,
+    pub steps: Vec<String>,
 }
 
 impl Default for JenkinsStage {
     fn default() -> Self {
         JenkinsStage {
             name: "".to_string(),
-            jobs: vec![],
+            steps: vec![],
         }
     }
 }
 
-pub struct JenkinsJob {
-    pub name: String,
-    pub job: String,
-}
-
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct PostConfig {
     pub key: String,
-    pub value: Vec<JenkinsJob>,
+    pub value: Vec<String>,
 }
 
 #[cfg(test)]
@@ -191,5 +202,7 @@ mod tests {
         let jenkinsfile = Jenkinsfile::from_str(code).unwrap();
         assert_eq!(1, jenkinsfile.stages.len());
         assert_eq!("build", jenkinsfile.stages[0].name);
+        println!("{:?}", jenkinsfile.stages[0].steps);
+        assert_eq!(1, jenkinsfile.stages[0].steps.len());
     }
 }
