@@ -50,49 +50,14 @@ impl Jenkinsfile {
         }
 
         let mut parser = PipelineParser::parse(Rule::pipeline, buffer)?;
-        let mut agents = false;
-        let mut stages = false;
 
         while let Some(parsed) = parser.next() {
             match parsed.as_rule() {
-                Rule::agentDecl => {
-                    if agents {
-                        return Err(PestError::new_from_span(
-                            ErrorVariant::CustomError {
-                                message: "Cannot have two top-level `agent` directives".to_string(),
-                            },
-                            parsed.as_span(),
-                        ));
-                    }
-                    agents = true;
-                }
                 Rule::stagesDecl => {
-                    if stages {
-                        return Err(PestError::new_from_span(
-                            ErrorVariant::CustomError {
-                                message: "Cannot have two top-level `stages` directives".to_string(),
-                            },
-                            parsed.as_span(),
-                        ));
-                    }
-                    stages = true;
                     self.parse_stages(&mut parsed.into_inner())?;
                 }
                 _ => {}
             }
-        }
-        /*
-         * Both agents and stages are required, the lack thereof is an error
-         */
-        if !agents || !stages {
-            let error = PestError::new_from_pos(
-                ErrorVariant::ParsingError {
-                    positives: vec![],
-                    negatives: vec![],
-                },
-                pest::Position::from_start(buffer),
-            );
-            return Err(error);
         }
 
         Ok(())
@@ -113,44 +78,38 @@ impl Jenkinsfile {
      * Make sure that the stage has the required directives, otherwise throw
      * out a CustomError
      */
-    fn parse_stage(&mut self, parser: &mut Pairs<Rule>, span: pest::Span) -> Result<(), PestError<Rule>> {
-        let mut met_requirements = false;
-
+    fn parse_stage(&mut self, parser: &mut Pairs<Rule>) -> Result<(), PestError<Rule>> {
+        let mut stage = JenkinsStage::default();
         while let Some(parsed) = parser.next() {
             match parsed.as_rule() {
+                Rule::string => {
+                    stage.name = parsed.as_str().to_string();
+                }
                 Rule::stepsDecl => {
-                    met_requirements = true;
+                    //
                 }
                 Rule::parallelDecl => {
-                    met_requirements = true;
+                    //
                 }
                 Rule::stagesDecl => {
-                    met_requirements = true;
+                   //
                     self.parse_stages(&mut parsed.into_inner())?;
                 }
                 _ => {}
             }
         }
 
-        if !met_requirements {
-            Err(PestError::new_from_span(
-                ErrorVariant::CustomError {
-                    message: "A stage must have either steps{}, parallel{}, or nested stages {}"
-                        .to_string(),
-                },
-                span,
-            ))
-        } else {
-            Ok(())
-        }
+
+        self.stages.push(stage);
+
+        Ok(())
     }
 
     fn parse_stages(&mut self, parser: &mut Pairs<Rule>) -> Result<(), PestError<Rule>> {
         while let Some(parsed) = parser.next() {
             match parsed.as_rule() {
                 Rule::stage => {
-                    let span = parsed.as_span();
-                    self.parse_stage(&mut parsed.into_inner(), span)?;
+                    self.parse_stage(&mut parsed.into_inner())?;
                 }
                 _ => {}
             }
@@ -162,6 +121,15 @@ impl Jenkinsfile {
 pub struct JenkinsStage {
     pub name: String,
     pub jobs: Vec<JenkinsJob>,
+}
+
+impl Default for JenkinsStage {
+    fn default() -> Self {
+        JenkinsStage {
+            name: "".to_string(),
+            jobs: vec![],
+        }
+    }
 }
 
 pub struct JenkinsJob {
@@ -191,6 +159,7 @@ mod tests {
     }
 }
         "#;
-        Jenkinsfile::from_str(code);
+        let jenkinsfile = Jenkinsfile::from_str(code).unwrap();
+        assert_eq!(1, jenkinsfile.stages.len());
     }
 }
