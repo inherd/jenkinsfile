@@ -83,7 +83,7 @@ impl Jenkinsfile {
         while let Some(parsed) = parser.next() {
             match parsed.as_rule() {
                 Rule::string => {
-                    stage.name = parsed.as_str().to_string();
+                    stage.name = self.parse_string(&mut parsed.into_inner());
                 }
                 Rule::stepsDecl => {
                     //
@@ -105,6 +105,35 @@ impl Jenkinsfile {
         Ok(())
     }
 
+
+
+    fn parse_string(&mut self, parser: &mut Pairs<Rule>) -> String {
+        while let Some(parsed) = parser.next() {
+            match parsed.as_rule() {
+                Rule::triple_single_quoted
+                | Rule::single_quoted
+                | Rule::triple_double_quoted
+                | Rule::double_quoted => {
+                    for field in parsed.into_inner() {
+                        match field.as_rule() {
+                            Rule::inner_single_str
+                            | Rule::inner_triple_single_str
+                            | Rule::inner_triple_double_str
+                            | Rule::inner_double_str => {
+                                return field.as_str().to_string();
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                _ => {
+                    println!("not support {:?}", parsed.as_rule());
+                }
+            }
+        }
+
+        return "".to_string();
+    }
     fn parse_stages(&mut self, parser: &mut Pairs<Rule>) -> Result<(), PestError<Rule>> {
         while let Some(parsed) = parser.next() {
             match parsed.as_rule() {
@@ -161,5 +190,6 @@ mod tests {
         "#;
         let jenkinsfile = Jenkinsfile::from_str(code).unwrap();
         assert_eq!(1, jenkinsfile.stages.len());
+        assert_eq!("build", jenkinsfile.stages[0].name);
     }
 }
