@@ -19,7 +19,6 @@ pub struct Jenkinsfile {
     pub name: String,
     pub stages: Vec<JenkinsStage>,
     pub post: Vec<PostConfig>,
-    current_stage: JenkinsStage,
 }
 
 impl Default for Jenkinsfile {
@@ -28,7 +27,6 @@ impl Default for Jenkinsfile {
             name: "".to_string(),
             stages: vec![],
             post: vec![],
-            current_stage: Default::default()
         }
     }
 }
@@ -57,7 +55,7 @@ impl Jenkinsfile {
         while let Some(parsed) = parser.next() {
             match parsed.as_rule() {
                 Rule::stagesDecl => {
-                    self.parse_stages(&mut parsed.into_inner())?;
+                    self.stages = self.parse_stages(&mut parsed.into_inner());
                 }
                 _ => {}
             }
@@ -81,29 +79,27 @@ impl Jenkinsfile {
      * Make sure that the stage has the required directives, otherwise throw
      * out a CustomError
      */
-    fn parse_stage(&mut self, parser: &mut Pairs<Rule>) -> Result<(), PestError<Rule>> {
-        self.current_stage = JenkinsStage::default();
+    fn parse_stage(&mut self, parser: &mut Pairs<Rule>) -> JenkinsStage {
+        let mut current_stage = JenkinsStage::default();
         while let Some(parsed) = parser.next() {
             match parsed.as_rule() {
                 Rule::string => {
-                    self.current_stage.name = self.parse_string(&mut parsed.into_inner());
+                    current_stage.name = self.parse_string(&mut parsed.into_inner());
                 }
                 Rule::stepsDecl => {
-                    self.parse_steps(&mut parsed.into_inner())?;
+                    current_stage.steps = self.parse_steps(&mut parsed.into_inner());
                 }
                 Rule::parallelDecl => {
                     //
                 }
                 Rule::stagesDecl => {
-                    self.parse_stages(&mut parsed.into_inner())?;
+                    current_stage.sub_stages = self.parse_stages(&mut parsed.into_inner());
                 }
                 _ => {}
             }
         }
 
-        self.stages.push(self.current_stage.clone());
-
-        Ok(())
+        return current_stage
     }
 
     fn parse_string(&mut self, parser: &mut Pairs<Rule>) -> String {
@@ -133,31 +129,36 @@ impl Jenkinsfile {
 
         return "".to_string();
     }
-    fn parse_stages(&mut self, parser: &mut Pairs<Rule>) -> Result<(), PestError<Rule>> {
+    fn parse_stages(&mut self, parser: &mut Pairs<Rule>) -> Vec<JenkinsStage> {
+        let mut stages: Vec<JenkinsStage> = vec![];
         while let Some(parsed) = parser.next() {
             match parsed.as_rule() {
                 Rule::stage => {
-                    self.parse_stage(&mut parsed.into_inner())?;
+                    stages.push(self.parse_stage(&mut parsed.into_inner()));
                 }
                 _ => {}
             }
         }
-        Ok(())
+
+
+        stages
     }
 
-    fn parse_steps(&mut self, parser: &mut Pairs<Rule>) -> Result<(), PestError<Rule>> {
+    fn parse_steps(&mut self, parser: &mut Pairs<Rule>) -> Vec<String> {
+        let mut steps: Vec<String> = vec![];
         while let Some(parsed) = parser.next() {
             match parsed.as_rule() {
                 Rule::step => {
-                    self.current_stage.steps.push(parsed.as_str().to_string());
+                    steps.push(parsed.as_str().to_string());
                 }
                 Rule::scriptStep => {
-                    self.current_stage.steps.push(parsed.as_str().to_string());
+                    steps.push(parsed.as_str().to_string());
                 }
                 _ => {}
             }
         }
-        Ok(())
+
+        steps
     }
 }
 
@@ -165,6 +166,7 @@ impl Jenkinsfile {
 pub struct JenkinsStage {
     pub name: String,
     pub steps: Vec<String>,
+    pub sub_stages: Vec<JenkinsStage>,
 }
 
 impl Default for JenkinsStage {
@@ -172,6 +174,7 @@ impl Default for JenkinsStage {
         JenkinsStage {
             name: "".to_string(),
             steps: vec![],
+            sub_stages: vec![],
         }
     }
 }
@@ -221,8 +224,42 @@ mod tests {
         "#;
         let jenkinsfile = Jenkinsfile::from_str(code).unwrap();
         assert_eq!(1, jenkinsfile.stages.len());
-        println!("{:?}", jenkinsfile.stages[0].steps);
         assert_eq!(2, jenkinsfile.stages[0].steps.len());
+    }
+
+    #[test]
+    pub fn should_parse_sub_stages() {
+        let code = r#"pipeline {
+    agent none
+    stages {
+        stage('Sequential') {
+            agent {
+                label 'for-sequential'
+            }
+            environment {
+                FOR_SEQUENTIAL = "some-value"
+            }
+            stages {
+                stage('In Sequential 1') {
+                    steps {
+                        echo "In Sequential 1"
+                    }
+                }
+                stage('In Sequential 2') {
+                    steps {
+                        echo "In Sequential 2"
+                    }
+                }
+            }
+        }
+    }
+}
+        "#;
+        let jenkinsfile = Jenkinsfile::from_str(code).unwrap();
+
+        assert_eq!(1, jenkinsfile.stages.len());
+        assert_eq!(2, jenkinsfile.stages[0].sub_stages.len());
+        assert_eq!(1, jenkinsfile.stages[0].sub_stages[0].steps.len());
     }
 
     #[test]
