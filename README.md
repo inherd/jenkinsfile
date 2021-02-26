@@ -1,6 +1,14 @@
 # Jenkinsfile
 
+[![Docs](https://docs.rs/jenkinsfile/badge.svg)](https://docs.rs/jenkinsfile)
+
 > a tools to convert Jenkinsfile to data struct.
+
+Usage:
+
+```rust
+let jenkinsfile = Jenkinsfile::from_str(code).unwrap();
+```
 
 ## LICENSE
 
