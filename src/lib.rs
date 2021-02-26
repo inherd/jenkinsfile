@@ -372,4 +372,45 @@ mod tests {
         assert_eq!("Build", jenkinsfile.stages[0].name);
         assert_eq!(3, jenkinsfile.stages[0].steps.len());
     }
+
+    #[test]
+    pub fn should_parse_multiple_sub_stages() {
+        let code = r#"pipeline {
+    agent any
+    stages {
+        stage('Non-Parallel Stage') {
+            steps {
+                echo 'This stage will be executed first.'
+            }
+        }
+        stage('Parallel Stage') {
+            when {
+                branch 'master'
+            }
+            failFast true
+            parallel {
+                stage('Branch C') {
+                    agent {
+                        label "for-branch-c"
+                    }
+                    stages {
+                        stage('Nested 1') {
+                            steps {
+                                echo "In stage Nested 1 within Branch C"
+                            }
+                        }
+                        stage('Nested 2') {
+                            steps {
+                                echo "In stage Nested 2 within Branch C"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}"#;
+        let jenkinsfile = Jenkinsfile::from_str(code).unwrap();
+        assert_eq!(2, jenkinsfile.stages[1].sub_stages[0].sub_stages.len());
+    }
 }
