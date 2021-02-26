@@ -207,6 +207,25 @@ mod tests {
     }
 
     #[test]
+    pub fn should_parse_echo() {
+        let code = r#"pipeline {
+    stages {
+        stage('build') {
+            steps {
+                sleep 10
+                sh 'mvn --version'
+            }
+        }
+    }
+}
+        "#;
+        let jenkinsfile = Jenkinsfile::from_str(code).unwrap();
+        assert_eq!(1, jenkinsfile.stages.len());
+        println!("{:?}", jenkinsfile.stages[0].steps);
+        assert_eq!(2, jenkinsfile.stages[0].steps.len());
+    }
+
+    #[test]
     pub fn should_parse_multiple_stages() {
         let code = r#"pipeline {
     agent none
@@ -252,7 +271,6 @@ mod tests {
         "#;
         let jenkinsfile = Jenkinsfile::from_str(code).unwrap();
         assert_eq!(3, jenkinsfile.stages.len());
-        println!("{:?}", jenkinsfile.stages);
         assert_eq!("Build", jenkinsfile.stages[0].name);
         assert_eq!(3, jenkinsfile.stages[0].steps.len());
     }
