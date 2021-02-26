@@ -254,5 +254,6 @@ mod tests {
         assert_eq!(3, jenkinsfile.stages.len());
         println!("{:?}", jenkinsfile.stages);
         assert_eq!("Build", jenkinsfile.stages[0].name);
+        assert_eq!(3, jenkinsfile.stages[0].steps.len());
     }
 }
