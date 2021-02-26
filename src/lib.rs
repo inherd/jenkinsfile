@@ -90,7 +90,17 @@ impl Jenkinsfile {
                     current_stage.steps = self.parse_steps(&mut parsed.into_inner());
                 }
                 Rule::parallelDecl => {
-                    //
+                    current_stage.is_parallel = true;
+                    let mut parallel_decl = parsed.into_inner();
+                    while let Some(parallel_parsed) = parallel_decl.next() {
+                        match parallel_parsed.as_rule() {
+                            Rule::stage => {
+                                let stage = self.parse_stage(&mut parallel_parsed.into_inner());
+                                current_stage.sub_stages.push(stage);
+                            }
+                            _ => {}
+                        }
+                    }
                 }
                 Rule::stagesDecl => {
                     current_stage.sub_stages = self.parse_stages(&mut parsed.into_inner());
@@ -166,6 +176,7 @@ impl Jenkinsfile {
 pub struct JenkinsStage {
     pub name: String,
     pub steps: Vec<String>,
+    pub is_parallel: bool,
     pub sub_stages: Vec<JenkinsStage>,
 }
 
@@ -174,6 +185,7 @@ impl Default for JenkinsStage {
         JenkinsStage {
             name: "".to_string(),
             steps: vec![],
+            is_parallel: false,
             sub_stages: vec![],
         }
     }
@@ -260,6 +272,55 @@ mod tests {
         assert_eq!(1, jenkinsfile.stages.len());
         assert_eq!(2, jenkinsfile.stages[0].sub_stages.len());
         assert_eq!(1, jenkinsfile.stages[0].sub_stages[0].steps.len());
+    }
+
+    #[test]
+    pub fn should_parse_sub_sub_stages() {
+        let code = r#"pipeline {
+    agent none
+    stages {
+        stage('Sequential') {
+            agent {
+                label 'for-sequential'
+            }
+            environment {
+                FOR_SEQUENTIAL = "some-value"
+            }
+            stages {
+                stage('In Sequential 1') {
+                    steps {
+                        echo "In Sequential 1"
+                    }
+                }
+                stage('In Sequential 2') {
+                    steps {
+                        echo "In Sequential 2"
+                    }
+                }
+                stage('Parallel In Sequential') {
+                    parallel {
+                        stage('In Parallel 1') {
+                            steps {
+                                echo "In Parallel 1"
+                            }
+                        }
+                        stage('In Parallel 2') {
+                            steps {
+                                echo "In Parallel 2"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+        "#;
+        let jenkinsfile = Jenkinsfile::from_str(code).unwrap();
+
+        assert_eq!(3, jenkinsfile.stages[0].sub_stages.len());
+        assert_eq!(true, jenkinsfile.stages[0].sub_stages[2].is_parallel);
+        assert_eq!(2, jenkinsfile.stages[0].sub_stages[2].sub_stages.len());
     }
 
     #[test]
