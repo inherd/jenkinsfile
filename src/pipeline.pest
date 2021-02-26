@@ -207,10 +207,8 @@ block_step = _{ IDENT ~
               }
 // Hard-coding this until the parser has richer symbol support
 checkout_step = { "checkout" ~ "scm" }
-shell_step = { "sh" ~ string }
-stash_step = { "stash" ~ string }
-unstash_step = { "unstash" ~ string }
-step = { checkout_step | shell_step | stash_step | unstash_step | block_step | simple_step }
+cmd_step = { ( "sh" | "bat" | "stash" | "unstash" ) ~ string}
+step = { checkout_step | cmd_step | block_step | simple_step }
 
 value = _{ string | bool | number | magic_vars }
 arg = _{ value | array_args | map_args | step }
