@@ -1,6 +1,8 @@
 # Jenkinsfile
 
 [![Docs](https://docs.rs/jenkinsfile/badge.svg)](https://docs.rs/jenkinsfile)
+[![Crates.io](https://img.shields.io/crates/d/jenkinsfile.svg)](https://crates.io/crates/jenkinsfile)
+[![Crates.io](https://img.shields.io/crates/v/jenkinsfile.svg)](https://crates.io/crates/jenkinsfile)
 
 > a tools to convert Jenkinsfile to data struct.
 
