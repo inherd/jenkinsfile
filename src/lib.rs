@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate lazy_static;
 extern crate pest;
-#[macro_use]
+extern crate serde;
 extern crate pest_derive;
 
 use pest::error::Error as PestError;
@@ -14,7 +14,7 @@ use regex::Regex;
 #[grammar = "pipeline.pest"]
 pub struct PipelineParser;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct Jenkinsfile {
     pub name: String,
     pub stages: Vec<JenkinsStage>,
@@ -172,7 +172,7 @@ impl Jenkinsfile {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct JenkinsStage {
     pub name: String,
     pub steps: Vec<String>,
@@ -191,7 +191,7 @@ impl Default for JenkinsStage {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct PostConfig {
     pub key: String,
     pub value: Vec<String>,
