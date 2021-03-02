@@ -1,8 +1,14 @@
 #[macro_use]
 extern crate lazy_static;
+
+#[macro_use]
+extern crate serde_derive;
+
+#[macro_use]
+extern crate pest_derive;
+
 extern crate pest;
 extern crate serde;
-extern crate pest_derive;
 
 use pest::error::Error as PestError;
 use pest::error::ErrorVariant;
